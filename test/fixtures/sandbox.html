@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Sandbox probe</title>
+<pre id="result">Running</pre>
+<form action="/blocked-form" method="post"><button>Submit</button></form>
+<script>
+const probe = { inlineScript: true, violations: [] };
+document.addEventListener("securitypolicyviolation", event => {
+  probe.violations.push(event.effectiveDirective);
+});
+try { localStorage.setItem("probe", "x"); probe.storage = "allowed"; }
+catch { probe.storage = "blocked"; }
+fetch("/blocked-fetch").then(() => probe.fetch = "allowed", () => probe.fetch = "blocked");
+const frame = document.createElement("iframe");
+frame.src = "/blocked-frame";
+document.body.append(frame);
+document.querySelector("form").requestSubmit();
+setTimeout(() => document.querySelector("#result").textContent = JSON.stringify(probe), 500);
+</script>

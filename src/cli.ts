@@ -4,6 +4,7 @@ import { readFile, open } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { contentTypeForFilename } from "./content.js";
+import { htmlPublicationUrl, saveHtmlPublicationUrl } from "./html-publication.js";
 import { MAX_UPLOAD_BYTES, parseUploadResult, uploadId, type UploadResult } from "./protocol.js";
 
 const args = process.argv.slice(2);
@@ -14,9 +15,14 @@ const command = args[0] === "publish" || args[0] === "replace" || args[0] === "d
 
 try {
   if (command === "publish" && args.length === 1) {
-    print(await publish(args[0]!), json);
-  } else if (command === "replace" && args.length === 2) {
-    print(await replace(args[0]!, args[1]!), json);
+    const path = args[0]!;
+    const result = await publish(path);
+    await reportUpload(result, path);
+  } else if (command === "replace" && (args.length === 1 || args.length === 2)) {
+    const path = args.at(-1)!;
+    const target = args.length === 2 ? args[0]! : await htmlPublicationUrl(path);
+    const result = await replace(target, path);
+    await reportUpload(result, path);
   } else if (command === "delete" && args.length === 1) {
     await remove(args[0]!);
     process.stdout.write("Deleted\n");
@@ -47,6 +53,16 @@ async function replace(target: string, path: string): Promise<UploadResult> {
   const etag = current.headers.get("etag");
   if (!etag) throw new Error("Rune API did not return a revision validator");
   return upload("PUT", `/uploads/${id}`, path, etag);
+}
+
+async function reportUpload(result: UploadResult, path: string): Promise<void> {
+  print(result, json);
+  try {
+    await saveHtmlPublicationUrl(path, result.url);
+  } catch (error) {
+    // The upload already succeeded. A local write failure must not invite a duplicate publish.
+    process.stderr.write(`Upload succeeded, but could not save rune-url in local HTML: ${error instanceof Error ? error.message : String(error)}\nUse rune replace ${result.url} <file> to update this publication.\n`);
+  }
 }
 
 async function remove(target: string): Promise<void> {
@@ -147,6 +163,7 @@ function usage(): void {
   process.stderr.write(`Usage:
   rune <file>
   rune publish <file> [--json]
+  rune replace <html-file> [--json]
   rune replace <id-or-url> <file> [--json]
   rune delete <id-or-url>
 `);

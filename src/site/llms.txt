@@ -18,8 +18,9 @@ curl --fail-with-body \
 Use the file's MIME type and URL-encode the filename query value.
 The body is the file itself, not multipart. Content-Length is required;
 curl supplies it for the file command above.
-Success: HTTP 201 with { id, url, etag }. Save all three. Return url
-to the user only after success. The link is public; do not upload secrets.
+Success: HTTP 201 with { id, url, etag }. Keep the stable url for updates;
+the ID is in its hostname, and the current ETag can be fetched when needed.
+Return url to the user only after success. The link is public; do not upload secrets.
 
 ## Update the same link
 HEAD https://api.rune.page/uploads/<id> with the bearer token gets
@@ -35,12 +36,25 @@ Success: HTTP 204. Deletion is permanent; do it only when requested.
 
 ## CLI, if already installed
 rune publish report.html --json
+rune replace report.html --json
 rune replace <id-or-root-url> report.html --json
 rune delete <id-or-root-url>
 
 Without --json, publishing prints just the URL. The CLI reads RUNE_TOKEN
 or its configured token file. Use HTTP if no CLI is installed.
 Use a bare ID or the root publication URL, without a query or fragment.
+
+After a successful upload, the CLI saves the URL in the local HTML file as
+<meta name="rune-url" content="https://<id>.rune.page/">. Preserve this tag
+when editing. rune replace report.html reads it and fetches the current
+API ETag. No separate metadata file or saved ETag is needed. Other formats
+and HTML without a tag use the explicit ID-or-URL form.
+Publishing always creates a new link, even if the file already has a tag;
+the CLI then updates the local tag to the new URL. It does not upload again
+just to add the tag to the hosted copy. If saving the tag fails, the upload
+still succeeded: keep the printed URL and use explicit replacement.
+With direct HTTP, agents can add the same stable URL tag to local HTML
+after publication. It needs no update after replacement at the same URL.
 
 ## Formats
 HTML: inline styles and scripts; embed assets as data URLs. No external

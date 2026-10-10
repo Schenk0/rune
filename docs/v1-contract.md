@@ -82,11 +82,18 @@ Replacement and deletion accept a bare ID or an exact root URL on the configured
 
 ```sh
 rune report.html
+rune replace report.html
 rune replace https://<id>.rune.page/ report.html
 rune delete https://<id>.rune.page/
 ```
 
 The default publish output is only the public URL, which makes it suitable for agents. Add `--json` to create and replace commands for the full API response.
+
+After a successful HTML upload, the CLI saves the stable URL in the local file's `<meta name="rune-url" content="...">` tag. `rune replace <html-file>` reads that tag and fetches the current API ETag before uploading. It rejects missing or ambiguous tags and URLs outside the configured public origin before making an API request. The explicit target form works for all formats and updates the local HTML tag to the returned URL.
+
+Publishing always creates a new publication, even for HTML with an existing tag. The CLI updates the local tag after success, without an extra upload; the hosted copy may not contain that annotation until the next content update. Existing correct tags are left untouched. Tags are read from the document head, preserving the rest of the source when inserting or changing them. No separate metadata file, saved ID, or saved ETag is needed. Non-HTML files remain unchanged.
+
+If saving the local HTML tag fails after a successful upload, the CLI still prints the successful result and exits successfully, with a warning to use the returned URL for explicit replacement. Upload failures never modify the local file.
 
 ## Deferred
 

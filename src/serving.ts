@@ -6,7 +6,7 @@ const IMAGES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "i
 const MEDIA = new Set(["audio/aac", "audio/flac", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/wav", "video/mp4", "video/quicktime", "video/webm"]);
 const PREVIEW_BYTES = 4096;
 const VIEW_POLICY = "default-src 'none'; base-uri 'none'; form-action 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; object-src 'none'";
-const HTML_POLICY = "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src data:; form-action 'none'; frame-src 'none'; img-src data: blob:; media-src data: blob:; object-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; sandbox allow-scripts";
+const HTML_POLICY = "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src data:; form-action 'none'; frame-src 'none'; img-src data: blob:; media-src data: blob:; object-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox";
 
 /** Public representation and asset requests share metadata, conditions and range handling. */
 export async function serveFile(request: Request, bucket: R2Bucket, key: string, ctx?: Pick<ExecutionContext, "waitUntil">): Promise<Response> {

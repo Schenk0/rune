@@ -172,9 +172,15 @@ describe("Rune", () => {
     const response = await worker.fetch(upload.url);
     const policy = response.headers.get("content-security-policy");
 
-    expect(policy).toContain("sandbox allow-scripts");
+    expect(policy?.split("; ").find(directive => directive.startsWith("sandbox")))
+      .toBe("sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox");
     expect(policy).toContain("connect-src 'none'");
     expect(policy).not.toContain("allow-same-origin");
+    const revalidated = await worker.fetch(upload.url, { headers: { "if-none-match": response.headers.get("etag")! } });
+    expect(revalidated.status).toBe(304);
+    expect(revalidated.headers.get("content-security-policy")).toBe(policy);
+    const head = await worker.fetch(upload.url, { method: "HEAD" });
+    expect(head.headers.get("content-security-policy")).toBe(policy);
   });
 
   it("renders Markdown without enabling embedded HTML", async () => {

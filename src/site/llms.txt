@@ -8,6 +8,12 @@ require an owner-provided bearer token. There is no public signup.
 Use a configured RUNE_TOKEN. If credentials are missing, ask the owner.
 Keep the token out of uploaded files and chat output.
 
+Direct HTTP clients should send a descriptive User-Agent, such as Rune/1.0.
+Cloudflare rejects Python urllib's default signature with HTTP 403 / error
+1010 before Rune handles the request. In Python, pass
+headers={"User-Agent": "Rune/1.0"} to urllib.request.Request alongside
+the other required headers. The Rune CLI and curl work without this change.
+
 ## Publish
 curl --fail-with-body \
   'https://api.rune.page/uploads?filename=report.html' \

@@ -30,7 +30,7 @@ export async function serveFile(request: Request, bucket: R2Bucket, key: string,
   const activeHtml = type === "text/html" && url.pathname === "/";
   const transformed = viewer || activeHtml;
   // Template changes must invalidate rendered responses even when the source file is unchanged.
-  const etag = transformed ? `"${metadata.version}-viewer-6"` : metadata.httpEtag;
+  const etag = transformed ? `"${metadata.version}-viewer-7"` : metadata.httpEtag;
   const headers = new Headers({
     "cache-control": "public, max-age=0, must-revalidate",
     etag,
@@ -56,7 +56,7 @@ export async function serveFile(request: Request, bucket: R2Bucket, key: string,
   if (request.method === "HEAD") return new Response(null, { headers });
 
   // Always validate the current record first. Immutable cache entries cannot hide replacements/deletes.
-  const cacheKey = new Request(`${url.origin}/__cache/viewer-6/${encodeURIComponent(metadata.version)}${url.pathname}`);
+  const cacheKey = new Request(`${url.origin}/__cache/viewer-7/${encodeURIComponent(metadata.version)}${url.pathname}`);
   const cacheable = Boolean(ctx) && !request.headers.has("range") && metadata.size <= 1024 * 1024;
   if (cacheable) {
     const cached = await caches.default.match(cacheKey);

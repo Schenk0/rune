@@ -32,6 +32,16 @@ export function addPageMetadata(response: Response, filename: string): Response 
   let titleHasText = false;
   const fallbackTitle = `<title>${filename.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</title>`;
   return new HTMLRewriter()
+    .on("*", {
+      element(element) {
+        if (inserted || element.tagName === "html") return;
+        // HTMLRewriter skips implied tags. Insert before the first element so
+        // the browser puts the icon in its head even when head/body are omitted.
+        if (element.tagName === "head") element.prepend(FAVICON_LINK, { html: true });
+        else element.before(FAVICON_LINK, { html: true });
+        inserted = true;
+      },
+    })
     .on("title", {
       element(element) {
         hasTitle = true;
@@ -52,8 +62,6 @@ export function addPageMetadata(response: Response, filename: string): Response 
     })
     .on("head", {
       element(element) {
-        if (!inserted) element.append(FAVICON_LINK, { html: true });
-        inserted = true;
         element.onEndTag(end => {
           if (!hasTitle) {
             end.before(fallbackTitle, { html: true });
@@ -62,13 +70,13 @@ export function addPageMetadata(response: Response, filename: string): Response 
         });
       },
     })
-    .on("body", {
-      element(element) {
-        if (!inserted) element.prepend(FAVICON_LINK, { html: true });
-        inserted = true;
-      },
-    })
     .onDocument({
+      text(text) {
+        if (!inserted && text.text.trim()) {
+          text.before(FAVICON_LINK, { html: true });
+          inserted = true;
+        }
+      },
       end(end) {
         if (!inserted) end.append(FAVICON_LINK, { html: true });
         if (!hasTitle) end.append(fallbackTitle, { html: true });

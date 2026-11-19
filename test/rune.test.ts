@@ -1,5 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import { parse } from "parse5";
 
 const worker = exports.default;
 const auth = { authorization: "Bearer test-token" };
@@ -41,7 +42,7 @@ describe("Rune", () => {
       const html = await response.text();
       expect(html).toContain(`<title>${title}</title>`);
       expect(html.match(/<title>/g)).toHaveLength(1);
-      expect(response.headers.get("etag")).toContain("viewer-6");
+      expect(response.headers.get("etag")).toContain("viewer-7");
       expect(await (await worker.fetch(new URL("/raw", upload.url))).text()).toBe(source);
     }
   });
@@ -84,6 +85,35 @@ describe("Rune", () => {
       const head = await worker.fetch(upload.url, { method: "HEAD" });
       expect(head.headers.get("etag")).toBe(response.headers.get("etag"));
       expect(head.headers.get("content-length")).toBeNull();
+    }
+  });
+
+  it("puts the favicon in the parsed head when HTML tags are omitted", async () => {
+    for (const source of [
+      '<!doctype html><html lang="en"><meta charset="utf-8"><title>Original</title><h1>Hello</h1></html>',
+      '<html><head><title>Original</title></head><body>Hello</body></html>',
+      '<html><body>Hello</body></html>',
+      '<body>Hello</body>',
+      '<h1>Hello</h1>',
+      'Hello <strong>world</strong>',
+      '<!-- comment -->Hello',
+      '<link rel="icon" href="old.ico"><p>Hello</p>',
+      '',
+    ]) {
+      const upload = await create("page.html", source, "text/html");
+      const response = await worker.fetch(upload.url);
+      const html = await response.text();
+      const document = parse(html);
+      const root = document.childNodes.find(node => node.nodeName === "html");
+      const head = root && "childNodes" in root
+        ? root.childNodes.find(node => node.nodeName === "head") : undefined;
+      const icons = head && "childNodes" in head
+        ? head.childNodes.filter(node => node.nodeName === "link" && "attrs" in node &&
+          node.attrs.some(attr => attr.name === "rel" && attr.value === "icon")) : [];
+      expect(icons, `head favicon for ${JSON.stringify(source)}`).toHaveLength(1);
+      expect(html.match(/rel="icon"/g)).toHaveLength(1);
+      expect(response.headers.get("content-security-policy")).not.toContain("allow-same-origin");
+      expect(await (await worker.fetch(new URL("/raw", upload.url))).text()).toBe(source);
     }
   });
 

@@ -7,6 +7,10 @@ const MEDIA = new Set(["audio/aac", "audio/flac", "audio/mp4", "audio/mpeg", "au
 const PREVIEW_BYTES = 4096;
 const VIEW_POLICY = "default-src 'none'; base-uri 'none'; form-action 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; object-src 'none'";
 const HTML_POLICY = "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src data:; form-action 'none'; frame-src 'none'; img-src data: blob:; media-src data: blob:; object-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox";
+// Per-publication origins isolate opt-in frame demos while allowing parent/srcdoc DOM access.
+const IFRAME_HTML_POLICY = HTML_POLICY
+  .replace("frame-src 'none'", "frame-src 'self' data: blob:")
+  .replace("sandbox allow-scripts", "sandbox allow-scripts allow-same-origin");
 
 /** Public representation and asset requests share metadata, conditions and range handling. */
 export async function serveFile(request: Request, bucket: R2Bucket, key: string, ctx?: Pick<ExecutionContext, "waitUntil">): Promise<Response> {
@@ -28,9 +32,10 @@ export async function serveFile(request: Request, bucket: R2Bucket, key: string,
   const binary = !isText && !image && !media && type !== "application/pdf";
   const viewer = binary || (url.pathname === "/" && (image || media || markdown));
   const activeHtml = type === "text/html" && url.pathname === "/";
+  const iframes = activeHtml && url.searchParams.get("iframes") === "1";
   const transformed = viewer || activeHtml;
   // Template changes must invalidate rendered responses even when the source file is unchanged.
-  const etag = transformed ? `"${metadata.version}-viewer-7"` : metadata.httpEtag;
+  const etag = transformed ? `"${metadata.version}-viewer-7${iframes ? "-iframes" : ""}"` : metadata.httpEtag;
   const headers = new Headers({
     "cache-control": "public, max-age=0, must-revalidate",
     etag,
@@ -41,7 +46,7 @@ export async function serveFile(request: Request, bucket: R2Bucket, key: string,
     "content-disposition": disposition(metadata.customMetadata?.filename ?? "file"),
   });
   headers.set("content-type", viewer || activeHtml ? "text/html; charset=utf-8" : isText ? "text/plain; charset=utf-8" : type);
-  headers.set("content-security-policy", viewer ? VIEW_POLICY : activeHtml ? HTML_POLICY : media ? "default-src 'none'; media-src 'self'" : type === "application/pdf" ? "default-src 'none'; object-src 'self'" : "default-src 'none'; sandbox");
+  headers.set("content-security-policy", viewer ? VIEW_POLICY : activeHtml ? (iframes ? IFRAME_HTML_POLICY : HTML_POLICY) : media ? "default-src 'none'; media-src 'self'" : type === "application/pdf" ? "default-src 'none'; object-src 'self'" : "default-src 'none'; sandbox");
 
   if (!transformed && (isText || type === "application/pdf")) {
     headers.set("content-security-policy", `${headers.get("content-security-policy")}; img-src ${url.origin}/favicon.ico`);

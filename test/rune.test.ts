@@ -213,6 +213,37 @@ describe("Rune", () => {
     expect(head.headers.get("content-security-policy")).toBe(policy);
   });
 
+  it("opts HTML into local frames without changing the default policy or cache validator", async () => {
+    const upload = await create("editor.html", '<iframe srcdoc="<p contenteditable>Editor</p>"></iframe>', "text/html");
+    const normal = await worker.fetch(upload.url);
+    const enabledUrl = `${upload.url}?iframes=1`;
+    const enabled = await worker.fetch(enabledUrl, { headers: { "if-none-match": normal.headers.get("etag")! } });
+    const policy = enabled.headers.get("content-security-policy");
+
+    expect(normal.headers.get("content-security-policy")).toContain("frame-src 'none'");
+    expect(normal.headers.get("content-security-policy")).not.toContain("allow-same-origin");
+    expect(enabled.status).toBe(200);
+    expect(enabled.headers.get("etag")).not.toBe(normal.headers.get("etag"));
+    expect(policy).toContain("frame-src 'self' data: blob:");
+    expect(policy).toContain("sandbox allow-scripts allow-same-origin");
+    expect(policy).toContain("connect-src 'none'");
+    expect(policy).toContain("form-action 'none'");
+    expect(policy).not.toContain("allow-top-navigation");
+    expect(policy).not.toContain("allow-downloads");
+    const revalidated = await worker.fetch(enabledUrl, { headers: { "if-none-match": enabled.headers.get("etag")! } });
+    expect(revalidated.status).toBe(304);
+    expect(revalidated.headers.get("content-security-policy")).toBe(policy);
+    const head = await worker.fetch(enabledUrl, { method: "HEAD" });
+    expect(head.headers.get("content-security-policy")).toBe(policy);
+    for (const suffix of ["?iframes=0", "?iframes=true", "raw?iframes=1"]) {
+      const response = await worker.fetch(`${upload.url}${suffix}`);
+      expect(response.headers.get("content-security-policy")).not.toContain("allow-same-origin");
+    }
+    const text = await create("plain.txt", "not HTML", "text/plain");
+    const plain = await worker.fetch(`${text.url}?iframes=1`);
+    expect(plain.headers.get("content-security-policy")).not.toContain("allow-same-origin");
+  });
+
   it("renders Markdown without enabling embedded HTML", async () => {
     const upload = await create("notes.md", "# Hello\n\n<script>alert(1)</script>", "text/markdown");
     const response = await worker.fetch(upload.url);

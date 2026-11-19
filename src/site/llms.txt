@@ -67,7 +67,12 @@ after publication. It needs no update after replacement at the same URL.
 
 ## Formats
 HTML: inline styles and scripts; embed assets as data URLs. No external
-assets, fetch, same-origin storage, forms, or frames.
+assets, fetch, same-origin storage, forms, or remote frames.
+For a self-contained iframe demo, append ?iframes=1 to its public root URL.
+This opts into srcdoc, same-publication, data, and blob frames with parent/child
+DOM access. Storage is available on that publication origin. Other sandbox
+restrictions remain; external frames and fetch are still blocked. Keep this
+query in demo navigation links. Use the bare root URL for CLI replacements.
 Markdown: GFM tables and task lists; embedded HTML is escaped. Large
 or dense documents display as text. Render limits: 64 KiB input,
 2,048 non-letter/non-number/non-space characters, 512 KiB output.

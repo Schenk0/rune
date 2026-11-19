@@ -5,6 +5,7 @@ import { MAX_UPLOAD_BYTES, type UploadResult } from "./protocol";
 import { removeDerived, storePublication, UploadBodyError } from "./storage";
 import { reserveUpload } from "./budget";
 import { serveSite } from "./site";
+import { authenticate, manageUsers, OWNER_ID, type Identity } from "./access";
 
 const OBJECT_PREFIX = "uploads/";
 
@@ -12,8 +13,8 @@ export default {
   async fetch(request, env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const siteHost = url.hostname === env.PUBLIC_DOMAIN || url.hostname === `www.${env.PUBLIC_DOMAIN}`;
-    // Local development shares localhost with the API; preserve its /uploads paths.
-    if (siteHost && !(url.hostname === env.API_HOST && url.pathname.startsWith("/uploads"))) {
+    // Local development shares localhost with the API; preserve its API paths.
+    if (siteHost && !(url.hostname === env.API_HOST && /^\/(uploads|users)(\/|$)/.test(url.pathname))) {
       return serveSite(request, env.PUBLIC_ORIGIN);
     }
 
@@ -37,14 +38,17 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 async function handleApi(request: Request, env: Env, url: URL): Promise<Response> {
-  if (!isAuthorized(request, env.UPLOAD_TOKEN)) {
-    return jsonError("Unauthorized", 401);
-  }
+  const identity = await authenticate(request, env);
+  if (identity instanceof Response) return identity;
   if (["POST", "PUT", "DELETE"].includes(request.method) &&
       !(await env.WRITE_LIMITER.limit({ key: "mutations" })).success) return rateLimited();
 
+  if (url.pathname === "/users" || url.pathname.startsWith("/users/")) {
+    return manageUsers(request, env, url, identity);
+  }
+
   if (request.method === "POST" && url.pathname === "/uploads") {
-    return createUpload(request, env, url);
+    return createUpload(request, env, url, identity);
   }
 
   const id = /^\/uploads\/([^/]+)$/.exec(url.pathname)?.[1];
@@ -53,19 +57,19 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
   }
 
   if (request.method === "PUT") {
-    return replaceUpload(request, env, url, id);
+    return replaceUpload(request, env, url, id, identity);
   }
   if (request.method === "HEAD") {
-    return inspectUpload(env, id);
+    return inspectUpload(env, id, identity);
   }
   if (request.method === "DELETE") {
-    return deleteUpload(env, id);
+    return deleteUpload(env, id, identity);
   }
 
   return methodNotAllowed("HEAD, PUT, DELETE");
 }
 
-async function createUpload(request: Request, env: Env, url: URL): Promise<Response> {
+async function createUpload(request: Request, env: Env, url: URL, identity: Identity): Promise<Response> {
   const input = uploadInput(request, url);
   if (input instanceof Response) {
     return input;
@@ -74,7 +78,7 @@ async function createUpload(request: Request, env: Env, url: URL): Promise<Respo
   const id = newUploadId();
   const exhausted = await reserveUpload(env.BUCKET, input.size, true);
   if (exhausted) return exhausted;
-  const object = await storePublication(env.BUCKET, objectKey(id), input);
+  const object = await storePublication(env.BUCKET, objectKey(id), { ...input, ownerId: identity.id });
 
   if (!object) {
     return jsonError("Could not allocate upload ID", 503);
@@ -92,9 +96,10 @@ async function replaceUpload(
   env: Env,
   url: URL,
   id: string,
+  identity: Identity,
 ): Promise<Response> {
   const existing = await env.BUCKET.head(objectKey(id));
-  if (!existing) {
+  if (!existing || !ownsPublication(existing, identity)) {
     return jsonError("Upload not found", 404);
   }
 
@@ -110,7 +115,7 @@ async function replaceUpload(
 
   const exhausted = await reserveUpload(env.BUCKET, input.size, false);
   if (exhausted) return exhausted;
-  const object = await storePublication(env.BUCKET, objectKey(id), input, existing);
+  const object = await storePublication(env.BUCKET, objectKey(id), { ...input, ownerId: identity.id }, existing);
 
   if (!object) {
     return jsonError("Upload has changed", 412);
@@ -123,10 +128,10 @@ async function replaceUpload(
   });
 }
 
-async function deleteUpload(env: Env, id: string): Promise<Response> {
+async function deleteUpload(env: Env, id: string, identity: Identity): Promise<Response> {
   const key = objectKey(id);
   const existing = await env.BUCKET.head(key);
-  if (!existing) {
+  if (!existing || !ownsPublication(existing, identity)) {
     return jsonError("Upload not found", 404);
   }
 
@@ -135,9 +140,9 @@ async function deleteUpload(env: Env, id: string): Promise<Response> {
   return new Response(null, { status: 204 });
 }
 
-async function inspectUpload(env: Env, id: string): Promise<Response> {
+async function inspectUpload(env: Env, id: string, identity: Identity): Promise<Response> {
   const object = await env.BUCKET.head(objectKey(id));
-  if (!object) {
+  if (!object || !ownsPublication(object, identity)) {
     return jsonError("Upload not found", 404);
   }
 
@@ -187,8 +192,8 @@ function uploadInput(
   };
 }
 
-function isAuthorized(request: Request, token: string): boolean {
-  return Boolean(token) && request.headers.get("authorization") === `Bearer ${token}`;
+function ownsPublication(object: R2Object, identity: Identity): boolean {
+  return (object.customMetadata?.ownerId ?? OWNER_ID) === identity.id;
 }
 
 function uploadIdFromHost(hostname: string, publicDomain: string): string | null {

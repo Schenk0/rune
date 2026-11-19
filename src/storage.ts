@@ -19,7 +19,7 @@ export function publicationMetadata(object: R2Object) {
 export async function storePublication(
   bucket: R2Bucket,
   key: string,
-  input: { body: ReadableStream; filename: string; contentType: string; size: number },
+  input: { body: ReadableStream; filename: string; contentType: string; size: number; ownerId: string },
   existing?: R2Object,
 ): Promise<R2Object | null> {
   const revision = crypto.randomUUID();
@@ -69,7 +69,7 @@ export async function storePublication(
     const object = await bucket.put(key, revision, {
       httpMetadata: { contentType: input.contentType },
       customMetadata: {
-        format: "publication-v2", filename: input.filename,
+        format: "publication-v2", filename: input.filename, ownerId: existing?.customMetadata?.ownerId ?? input.ownerId,
         sourceKey, sourceSize: String(source.size), sourceEtag: source.etag,
         ...(preview !== undefined ? { previewKey } : {}),
       },

@@ -13,9 +13,22 @@ The R2 bucket stays private. Every public read passes through the Worker.
 
 ## Authentication
 
-Mutation requests use `Authorization: Bearer <token>`. The token is stored as the Worker secret `UPLOAD_TOKEN` and as `RUNE_TOKEN` on clients.
+Authenticated requests use `Authorization: Bearer <token>`. The original Worker secret `UPLOAD_TOKEN` remains the owner credential, configured as `RUNE_TOKEN` on the owner's clients. It alone can provision and manage users. User credentials are manually issued, random 256-bit tokens, stored only as SHA-256 hashes in private R2 records at `control/users/<user-id>`. Authentication checks the record on each request; rotation or revocation blocks the old token on subsequent requests. Requests already authorized can finish.
+
+Each publication records an `ownerId`. A credential can inspect, replace, or delete only its own publications, including the owner credential. Publications without an `ownerId` belong to the original owner, so existing files and URLs need no migration. The owner credential manages access, but does not override another user's publication ownership.
+
+User IDs are stable, lowercase identifiers, at most 48 characters, beginning with a letter and containing letters, digits, or hyphens. `owner` is reserved. Revoked users retain their IDs and publications. Explicit rotation reactivates that same user and restores access to their publications; creating the same ID again is rejected.
 
 Public reads require no authentication. Rune does not expose an upload listing.
+
+### Owner-only access management
+
+- `GET /users` lists user IDs, creation/update times, and optional revocation times. It never returns tokens or hashes. A truncated page includes a `cursor`; pass it as `?cursor=...` for the next page. The original owner is not a provisioned user and is omitted.
+- `POST /users` with JSON `{ "id": "alice" }` provisions a user and returns HTTP `201` with `{ user, token }`. The token is returned once. Duplicate IDs return `409`.
+- `POST /users/<id>/token` rotates a token, returning HTTP `200` with `{ user, token }`. It invalidates the previous token and reactivates revoked users.
+- `DELETE /users/<id>/token` revokes access and returns `204`. Public links remain available. No publication is deleted.
+
+All management responses use `Cache-Control: no-store`. User credentials receive `403` on these endpoints; invalid credentials receive `401`. Concurrent access changes use conditional writes and return `409` on conflict. Storage or record-validation failures fail closed with `503`. Token issuance is not idempotent; if a success response is lost, rotate the user's token to recover. There is no token retrieval endpoint. See [access management](access.md) for the owner workflow.
 
 ## API
 
@@ -62,7 +75,8 @@ Each replacement gets a new revision, including filename-only and content-type-o
 
 ## Resource controls
 
-- Public reads are limited to 240 requests per minute per client IP. Authenticated mutations share 30 requests per minute. Rejections return `429` and `Retry-After: 60` before R2 access. Cloudflare rate limits are approximate and per location, not a global request or billing budget.
+- Public reads are limited to 240 requests per minute per client IP, before R2 access. Authenticated mutations share 30 requests per minute, before publication or access-record writes. Rejections return `429` and `Retry-After: 60`. Cloudflare rate limits are approximate and per location, not a global request or billing budget.
+- User-token authentication attempts are limited to 240 per minute per client IP before reading credential records. Authenticated mutation throttling happens after credential lookup, before publication or access-record writes. Access management consumes the shared mutation rate limit, but not the daily upload budget.
 - Responses for files up to 1 MiB are cached internally by revision and renderer version for up to a day. Every successful lookup still checks the current R2 record first, so replacement and deletion are not hidden by cached bodies. Ranges bypass this cache. Browsers must revalidate.
 - Missing IDs are cached for five seconds. A guessed ID subsequently allocated during that window can take up to five seconds to appear. Random new misses still reach R2.
 - Workers Free supplies the CPU ceiling. Custom CPU limits require Workers Paid, so Rune does not configure one. CPU exhaustion can terminate publication before a Markdown fallback is possible; its budget reservation remains charged.
@@ -97,6 +111,6 @@ If saving the local HTML tag fails after a successful upload, the CLI still prin
 
 ## Deferred
 
-Rune version one has no account system, public directory, dashboard, folders, search, editor, version history, or MCP server. It does not extract archives or convert office documents; those formats show a byte preview.
+Rune has manually provisioned users, with no public signup, login UI, public directory, dashboard, folders, search, editor, version history, or MCP server. It does not extract archives or convert office documents; those formats show a byte preview.
 
-Create requests are not idempotent. A lost success response can leave an undiscovered publication; the CLI does not automatically retry. Credentials still grant project-wide mutation access. A total-storage cap, reconciliation of abandoned objects, and separately revocable credentials remain follow-up work.
+Create requests are not idempotent. A lost success response can leave an undiscovered publication; the CLI does not automatically retry. A total-storage cap, reconciliation of abandoned objects, and per-user upload budgets remain follow-up work. All users share the existing global upload budget.

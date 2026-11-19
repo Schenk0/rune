@@ -7,6 +7,9 @@ Viewing needs no authentication. Publishing, replacement, and deletion
 require an owner-provided bearer token. There is no public signup.
 Use a configured RUNE_TOKEN. If credentials are missing, ask the owner.
 Keep the token out of uploaded files and chat output.
+Each user can replace or delete only their own publications. A 404 from an
+authenticated upload endpoint can mean the publication belongs to someone else.
+Only the owner's credential can provision or revoke users. Do not share it.
 
 Direct HTTP clients should send a descriptive User-Agent, such as Rune/1.0.
 Cloudflare rejects Python urllib's default signature with HTTP 403 / error
@@ -83,7 +86,8 @@ their full size toward bytes, not new-publication slots. Failed uploads
 can retain reservations. Deletion does not refund the daily budget.
 Existing links have no automatic expiry.
 
-401: check credentials. 404: check the publication ID.
+401: check credentials; the token may have been rotated or revoked.
+404: check the publication ID and ownership.
 411: supply Content-Length. 413: reduce file size.
 429 or 503: respect Retry-After before trying again; upload bursts can
 be rejected. Avoid parallel uploads. Reads and mutations are throttled.

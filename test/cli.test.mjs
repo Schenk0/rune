@@ -202,3 +202,74 @@ test('non-HTML uploads stay unchanged and require an explicit replacement target
   assert.equal(explicit.code, 0, explicit.stderr);
   assert.equal(await readFile(path, 'utf8'), original);
 });
+
+const aliceToken = `rune_alice_${'a'.repeat(64)}`;
+const alice = { id: 'alice', createdAt: '2026-10-21T10:00:00.000Z', updatedAt: '2026-10-21T10:00:00.000Z' };
+
+test('provisioning writes a private credential file without printing the token', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'rune-access-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = join(directory, 'alice-token');
+  const result = await run(['users', 'create', 'alice', '--token-file', path], (req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(201, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ user: alice, token: aliceToken }));
+    });
+  });
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(await readFile(path, 'utf8'), `${aliceToken}\n`);
+  assert.equal((await stat(path)).mode & 0o777, 0o600);
+  assert.equal(result.stdout.includes(aliceToken), false);
+  assert.equal(result.stderr.includes(aliceToken), false);
+  assert.equal(result.exchanges[0].body, JSON.stringify({ id: 'alice' }));
+  assert.equal(result.exchanges[0].headers.authorization, 'Bearer local-test');
+  const retry = await run(['users', 'create', 'alice', '--token-file', path], acceptUpload);
+  assert.notEqual(retry.code, 0);
+  assert.deepEqual(retry.requests, []);
+  assert.equal(await readFile(path, 'utf8'), `${aliceToken}\n`);
+});
+
+test('failed or malformed provisioning removes the empty credential file', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'rune-access-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  for (const status of [409, 201]) {
+    const path = join(directory, `token-${status}`);
+    const result = await run(['users', 'create', 'alice', '--token-file', path], (req, res) => {
+      req.resume();
+      req.on('end', () => {
+        res.writeHead(status, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(status === 409 ? { error: 'User already exists' } : { user: alice, token: 'invalid-token' }));
+      });
+    });
+    assert.notEqual(result.code, 0);
+    await assert.rejects(stat(path), { code: 'ENOENT' });
+    assert.match(result.stderr, /rotate alice to recover/);
+  }
+});
+
+test('rotation, revocation, and paginated listing use the management API', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'rune-access-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const rotated = await run(['users', 'rotate', 'alice', '--token-file', join(directory, 'rotated')], (req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ user: alice, token: aliceToken }));
+    });
+  });
+  assert.equal(rotated.code, 0, rotated.stderr);
+  assert.equal(rotated.exchanges[0].url, '/users/alice/token');
+  assert.equal(rotated.exchanges[0].method, 'POST');
+  const revoked = await run(['users', 'revoke', 'alice'], (_, res) => { res.writeHead(204); res.end(); });
+  assert.equal(revoked.code, 0, revoked.stderr);
+  assert.equal(revoked.exchanges[0].url, '/users/alice/token');
+  assert.equal(revoked.exchanges[0].method, 'DELETE');
+  const listed = await run(['users', 'list', '--json'], (req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(req.url === '/users' ? { users: [alice], cursor: 'next' } : { users: [{ ...alice, id: 'bob' }] }));
+  });
+  assert.equal(listed.code, 0, listed.stderr);
+  assert.deepEqual(listed.requests, ['/users', '/users?cursor=next']);
+  assert.deepEqual(JSON.parse(listed.stdout).map(user => user.id), ['alice', 'bob']);
+});

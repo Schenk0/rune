@@ -9,7 +9,12 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: "./wrangler.jsonc" },
       miniflare: {
-        bindings: { UPLOAD_TOKEN: "test-token" },
+        bindings: {
+          UPLOAD_TOKEN: "test-token",
+          API_HOST: "api.rune.page",
+          PUBLIC_DOMAIN: "rune.page",
+          PUBLIC_ORIGIN: "https://rune.page",
+        },
         ratelimits: {
           READ_LIMITER: { namespace_id: "9202101", simple: { limit: 10000, period: 60 } },
           WRITE_LIMITER: { namespace_id: "9202102", simple: { limit: 10000, period: 60 } },

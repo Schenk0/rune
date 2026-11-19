@@ -1,6 +1,6 @@
 # Publishing access
 
-Noah manually provisions each user. There is no public signup. Each user can publish files and replace or delete their own publications. Viewing published links remains public.
+The instance owner manually provisions each user. There is no public signup. Each user can publish files and replace or delete their own publications. Viewing published links remains public.
 
 The existing owner token in `~/.config/rune/token` manages access. Keep it private. Send a user only their individually issued token. Management commands use `RUNE_TOKEN` or the normal token file, so run them with the owner credential.
 
@@ -33,7 +33,7 @@ Token issuance is not automatically retried. If a request fails after reaching R
 
 ## Recipient setup
 
-The recipient saves the issued token at `~/.config/rune/token`, with permissions `0600`, or configures `RUNE_TOKEN`. They can use the CLI if installed, or the HTTP API without access to this private repository:
+The recipient saves the issued token at `~/.config/rune/token`, with permissions `0600`, or configures `RUNE_TOKEN`. They can use the CLI if installed, or the HTTP API without access to this repository:
 
 ```sh
 curl --fail-with-body \

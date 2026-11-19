@@ -1,0 +1,63 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rune-your-instance",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-18",
+  "workers_dev": false,
+  "preview_urls": false,
+  "rules": [
+    {
+      "type": "Text",
+      "globs": [
+        "**/*.html",
+        "**/*.txt",
+        "**/*.svg"
+      ],
+      "fallthrough": true
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "READ_LIMITER",
+      "namespace_id": "9202101",
+      "simple": {
+        "limit": 240,
+        "period": 60
+      }
+    },
+    {
+      "name": "WRITE_LIMITER",
+      "namespace_id": "9202102",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    }
+  ],
+  "secrets": {
+    "required": [
+      "UPLOAD_TOKEN"
+    ]
+  },
+  "vars": {
+    "API_HOST": "api.example.com",
+    "PUBLIC_DOMAIN": "example.com",
+    "PUBLIC_ORIGIN": "https://example.com"
+  },
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "rune-your-instance-files"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "example.com/*",
+      "zone_name": "example.com"
+    },
+    {
+      "pattern": "*.example.com/*",
+      "zone_name": "example.com"
+    }
+  ]
+}

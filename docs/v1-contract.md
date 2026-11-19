@@ -4,6 +4,8 @@ Rune stores one file per publication. The publication ID remains stable when its
 
 ## Hosts
 
+The hosts below describe rune.page. Self-hosted instances set their own hosts through `API_HOST`, `PUBLIC_DOMAIN`, and `PUBLIC_ORIGIN`; see [self-hosting](self-hosting.md).
+
 - `rune.page` serves the static landing page and `/llms.txt` agent instructions without upload credentials or R2 access. `www.rune.page` redirects to the canonical host, preserving the path and query. Both support GET and HEAD.
 - `api.rune.page` accepts authenticated mutations.
 - `<id>.rune.page` serves public files.

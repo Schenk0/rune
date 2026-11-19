@@ -2,6 +2,7 @@
   "name": "rune",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": {
     "rune": "./dist/cli.js"
@@ -9,7 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.cli.json && chmod +x dist/cli.js",
     "check": "pnpm run typecheck && pnpm run test && pnpm run test:cli",
-    "cf-typegen": "wrangler types",
+    "cf-typegen": "wrangler types --strict-vars=false",
     "dev": "wrangler dev --env local",
     "test": "vitest run",
     "test:cli": "pnpm run build && node --test test/cli.test.mjs",

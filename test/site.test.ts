@@ -54,4 +54,11 @@ it("serves the local homepage while preserving local API authentication", async 
   const local = { ...env, API_HOST: "localhost", PUBLIC_DOMAIN: "localhost", PUBLIC_ORIGIN: "http://localhost:8787" } as const;
   expect((await app.fetch(new Request("http://localhost:8787/"), local)).status).toBe(200);
   expect((await app.fetch(new Request("http://localhost:8787/uploads"), local)).status).toBe(401);
+  const homepage = await (await app.fetch(new Request("http://localhost:8787/"), local)).text();
+  expect(homepage).toContain('href="http://localhost:8787/"');
+  expect(homepage).toContain("http://localhost:8787/uploads");
+  const instructions = await (await app.fetch(new Request("http://localhost:8787/llms.txt"), local)).text();
+  expect(instructions).toContain("http://localhost:8787/uploads");
+  expect(instructions).toContain("http://<id>.localhost:8787/");
+  expect(instructions).not.toContain("rune.page");
 });

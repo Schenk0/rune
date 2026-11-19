@@ -15,7 +15,7 @@ export default {
     const siteHost = url.hostname === env.PUBLIC_DOMAIN || url.hostname === `www.${env.PUBLIC_DOMAIN}`;
     // Local development shares localhost with the API; preserve its API paths.
     if (siteHost && !(url.hostname === env.API_HOST && /^\/(uploads|users)(\/|$)/.test(url.pathname))) {
-      return serveSite(request, env.PUBLIC_ORIGIN);
+      return serveSite(request, env.PUBLIC_ORIGIN, env.API_HOST);
     }
 
     if (url.pathname === "/favicon.ico" && (url.hostname === env.API_HOST || uploadIdFromHost(url.hostname, env.PUBLIC_DOMAIN))) {

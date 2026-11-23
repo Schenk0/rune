@@ -2,7 +2,7 @@
 
 You need a Cloudflare account with Workers and R2, and a dedicated domain or zone managed by Cloudflare. Use a domain that does not carry other applications' cookies or private content. Public uploads run scripts, and iframe mode permits same-origin access within one publication.
 
-The tracked `wrangler.jsonc` is for local development. It has no production routes. `wrangler.deploy.example.jsonc` is a deployment template, not a working service configuration.
+The tracked `wrangler.jsonc` includes the hosted rune.page deployment and a separate local environment. `pnpm dev` selects the local environment and has no production routes. For your own instance, use `wrangler.deploy.example.jsonc` as a template instead of deploying Rune's top-level configuration.
 
 ## Configure your instance
 

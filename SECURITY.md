@@ -1,6 +1,6 @@
 # Security
 
-Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/Schenk0/rune/security/advisories/new) once enabled for this repository. If that option is unavailable, use the maintainer's contact information on their [GitHub profile](https://github.com/Schenk0). Do not post credentials, exploit details, or private publication content in a public issue. Reports are handled on a best-effort basis with no guaranteed response time.
+Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/Schenk0/rune/security/advisories/new). If that option is unavailable, use the maintainer's contact information on their [GitHub profile](https://github.com/Schenk0). Do not post credentials, exploit details, or private publication content in a public issue. Reports are handled on a best-effort basis with no guaranteed response time.
 
 Only the current default branch is maintained. There is no long-term support policy for older versions.
 

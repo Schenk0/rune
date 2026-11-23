@@ -14,7 +14,7 @@ cp .dev.vars.example .dev.vars
 pnpm dev
 ```
 
-Choose a local development token in `.dev.vars`. The tracked Wrangler configuration uses local storage, localhost URLs, and no public routes.
+Choose a local development token in `.dev.vars`. `pnpm dev` selects the local Wrangler environment, which uses local storage, localhost URLs, and no public routes. The top-level configuration targets the hosted rune.page instance.
 
 ```sh
 export RUNE_TOKEN='replace-with-your-local-development-token'
@@ -45,6 +45,8 @@ Credentials come from `RUNE_TOKEN`, `RUNE_TOKEN_FILE`, or `~/.config/rune/token`
 ## Host your own instance
 
 Follow [self-hosting](docs/self-hosting.md) to configure your domain, private bucket, and owner credential. Source availability does not grant publishing access to the hosted instance at rune.page. Self-hosting incurs your own Cloudflare and domain costs.
+
+Rune's non-secret deployment settings remain tracked in `wrangler.jsonc`. Maintainers deploy the hosted instance with `pnpm exec wrangler deploy --env=""` after checking the target and obtaining deployment authorization. Credentials remain local or in Cloudflare secrets.
 
 Read the [design](docs/design.md), [HTTP and security contract](docs/v1-contract.md), [access management](docs/access.md), and [operations](docs/operations.md). Agent instructions are available at `/llms.txt` on each instance.
 

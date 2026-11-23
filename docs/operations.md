@@ -2,9 +2,9 @@
 
 ## Deploy and recover
 
-Run `pnpm check` before deployment. Use your ignored `wrangler.deploy.jsonc` for deployment and secrets; see [self-hosting](self-hosting.md). Deployments are manual. There is no scheduled uptime workflow or automatic deployment.
+Run `pnpm check` before deployment. Rune's non-secret domain, Worker, bucket, and route settings are tracked in `wrangler.jsonc`. Deploy the hosted rune.page instance with `pnpm exec wrangler deploy --env=""` only after deployment authorization. `pnpm dev` uses the separate local environment. Other instance owners can use the ignored `wrangler.deploy.jsonc` described in [self-hosting](self-hosting.md). Deployments are manual. There is no scheduled uptime workflow or automatic deployment.
 
-Keep an independent private copy of deployment configuration and credentials. Git protects source, not uploaded files. Rune does not back up R2 automatically. Publication deletion is permanent.
+Keep credentials private and retain an independent backup. Git protects source and non-secret configuration, not uploaded files. Rune does not back up R2 automatically. Publication deletion is permanent.
 
 The private R2 accounting object `control/upload-budget` must not be deleted or restored to an older revision while uploads are enabled; doing so resets daily containment. Private `control/users/` records contain credential hashes and revocation state. Restoring an old record can reinstate an old credential. Preserve revoked records so identities cannot be reused. See [access management](access.md).
 
